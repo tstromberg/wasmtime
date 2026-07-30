@@ -301,6 +301,14 @@ unsafe fn get_trap_registers(cx: *mut libc::c_void, _signum: libc::c_int) -> Tra
                 pc: cx.uc_mcontext.mc_rip as usize,
                 fp: cx.uc_mcontext.mc_rbp as usize,
             }
+        } else if #[cfg(all(target_os = "netbsd", target_arch = "x86_64"))] {
+            // NetBSD exposes the saved registers as an indexed array rather
+            // than named fields, subscripted by the _REG_* constants.
+            let cx = unsafe { &*(cx as *const libc::ucontext_t) };
+            TrapRegisters {
+                pc: cx.uc_mcontext.__gregs[libc::_REG_RIP as usize] as usize,
+                fp: cx.uc_mcontext.__gregs[libc::_REG_RBP as usize] as usize,
+            }
         } else if #[cfg(all(target_os = "linux", target_arch = "riscv64"))] {
             let cx = unsafe { &*(cx as *const libc::ucontext_t) };
             TrapRegisters {
@@ -383,6 +391,15 @@ unsafe fn store_handler_in_ucontext(cx: *mut libc::c_void, handler: &Handler) {
             cx.uc_mcontext.mc_rsp = handler.sp as _;
             cx.uc_mcontext.mc_rax = 0;
             cx.uc_mcontext.mc_rdx = 0;
+        } else if #[cfg(all(target_os = "netbsd", target_arch = "x86_64"))] {
+            // See the matching get_trap_registers arm: NetBSD's mcontext_t is
+            // an indexed __gregs array, not named fields.
+            let cx = unsafe { cx.cast::<libc::ucontext_t>().as_mut().unwrap() };
+            cx.uc_mcontext.__gregs[libc::_REG_RIP as usize] = handler.pc as _;
+            cx.uc_mcontext.__gregs[libc::_REG_RBP as usize] = handler.fp as _;
+            cx.uc_mcontext.__gregs[libc::_REG_RSP as usize] = handler.sp as _;
+            cx.uc_mcontext.__gregs[libc::_REG_RAX as usize] = 0;
+            cx.uc_mcontext.__gregs[libc::_REG_RDX as usize] = 0;
         } else if #[cfg(all(target_os = "openbsd", target_arch = "x86_64"))] {
             let cx = unsafe { cx.cast::<libc::ucontext_t>().as_mut().unwrap() };
             cx.sc_rip = handler.pc as _;
