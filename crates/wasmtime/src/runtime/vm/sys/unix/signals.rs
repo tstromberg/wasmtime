@@ -239,7 +239,7 @@ pub fn abort_stack_overflow() -> ! {
 )]
 unsafe fn get_trap_registers(cx: *mut libc::c_void, _signum: libc::c_int) -> TrapRegisters {
     cfg_if::cfg_if! {
-        if #[cfg(all(any(target_os = "linux", target_os = "android", target_os = "illumos"), target_arch = "x86_64"))] {
+        if #[cfg(all(any(target_os = "linux", target_os = "android", target_os = "illumos", target_os = "solaris"), target_arch = "x86_64"))] {
             let cx = unsafe { &*(cx as *const libc::ucontext_t) };
             TrapRegisters {
                 pc: cx.uc_mcontext.gregs[libc::REG_RIP as usize] as usize,
@@ -344,7 +344,7 @@ unsafe fn get_trap_registers(cx: *mut libc::c_void, _signum: libc::c_int) -> Tra
 /// resumption while returning from the signal handler.
 unsafe fn store_handler_in_ucontext(cx: *mut libc::c_void, handler: &Handler) {
     cfg_if::cfg_if! {
-        if #[cfg(all(any(target_os = "linux", target_os = "android", target_os = "illumos"), target_arch = "x86_64"))] {
+        if #[cfg(all(any(target_os = "linux", target_os = "android", target_os = "illumos", target_os = "solaris"), target_arch = "x86_64"))] {
             let cx = unsafe { cx.cast::<libc::ucontext_t>().as_mut().unwrap() };
             cx.uc_mcontext.gregs[libc::REG_RIP as usize] = handler.pc as _;
             cx.uc_mcontext.gregs[libc::REG_RSP as usize] = handler.sp as _;
